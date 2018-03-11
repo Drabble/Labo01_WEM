@@ -1,17 +1,26 @@
-# 1. Contexte et objectifs du projet
+# WEM - Lab 1 - Crawling, indexing and searching web pages
 
-Ce projet est réalisé dans le cadre du cours Web Mining (WEM) pour le Master in Science and Engineering (MSE) de la HES-SO.
-Les responsables du cours sont Nastaran Fatemi, Laura Elena Raileanu et Loic Dutoit. 
+## 1. Crawler
+The crawler starts from a specific wikipedia page and crawls a certain amount of outgoing links (see crawler configs).
 
-Ce projet est une exploration des technologies de Web Mining avec Crawler4j et ApacheSolr. L'objectif est de parcourir
-toutes les pages webs de TODO...
+In this step we built the Java class "Crawler" to make the crawling and indexing of found documents in Solr.
 
-# 2. Données (sources, quantité, évtl. pré-traitement, description)
+## 2. More precise indexing
+A more precise Solr index was needed to return more relevant results so we selected the principal components of web pages during the crawling. 
+To achieve that we parsed the html content with jSoup and retrieved the following tags if present :
 
-# 3. Planification, répartition du travail
+- `<title>` : The title of the page, strongest element defining what the html page speaks of
+- TODO remove ? pas implémenté - `<meta name='description' content='bla bla'` : Gives an additional information. Not necessarily present
+- `<h1>` : First hierarchical order in html body. Gives also a strong indication of its content
+- `<b>` : Elements in bold like words or partial sentences usually have a good weight in SEO
 
-# 4. Fonctionnalités / cas d’utilisation
+![alt text](img/seo.png "Categories")
 
-# 5. Techniques, algorithmes et outils utilisés (aussi en lien avec votre exposé)
+Additionnaly we explored for `categories` sections which also give a powerful weight to searching.
 
-# 6. Conclusion
+![alt text](img/categories.png "Categories")
+
+Naturally, the choice of these elements are adapted accordingly to the domain we target. 
+Here we know we are parsing wikipedia html pages, which all have the same structure.
+
+## 3. 

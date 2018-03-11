@@ -12,15 +12,21 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.common.SolrInputDocument;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.select.Elements;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Pattern;
 
 /**
  * Created by antoi on 09.03.2018.
+ *
+ * Code was inspired from basic examples from
+ * https://github.com/yasserg/crawler4j/tree/master/crawler4j-examples/crawler4j-examples-base/src/test/java/edu/uci/ics/crawler4j/examples
  */
 public class Crawler extends WebCrawler {
 
@@ -30,7 +36,9 @@ public class Crawler extends WebCrawler {
                                                          + "|wav|avi|mov|mpeg|ram|m4v|pdf"
                                                          + "|rm|smil|wmv|swf|wma|zip|rar|gz))$");
 
-    private final String SOLR_URL = "http://localhost:8983/solr/crawler";
+    private final static String SOLR_URL = "http://localhost:8983/solr/crawler";
+    private final static String TARGET_DOMAIN = "https://en.wikipedia.org/wiki/";
+    //private final static SolrClient solr = new HttpSolrClient.Builder(SOLR_URL).build(); // not working if fields do not already exist in index
 
 
     /**
@@ -40,16 +48,26 @@ public class Crawler extends WebCrawler {
      * @throws Exception
      */
     public static void main(String[] args) throws Exception {
-        int numberOfCrawlers = 2;
+        int numberOfCrawlers = 2; // number of concurrent threads that should be initiated for crawling
         CrawlConfig config = new CrawlConfig();
         String crawlStorageFolder = "data";
 
+        // folder where intermediate crawl data is stored.
         config.setCrawlStorageFolder(crawlStorageFolder);
+
+        // Be polite: Make sure that we don't send more than 1 request per 0.5 second
         config.setPolitenessDelay(500);
+
+        // maximum crawl depth
         config.setMaxDepthOfCrawling(2);
+
+        // maximum number of pages to crawl
         config.setMaxPagesToFetch(80);
+
+        // crawl also binary data like the contents of pdf, or the metadata of images etc
         config.setIncludeBinaryContentInCrawling(false);
 
+        // Instantiate the controller for this crawl.
         PageFetcher pageFetcher = new PageFetcher(config);
         RobotstxtConfig robotstxtConfig = new RobotstxtConfig();
         RobotstxtServer robotstxtServer = new RobotstxtServer(robotstxtConfig, pageFetcher);
@@ -57,6 +75,8 @@ public class Crawler extends WebCrawler {
 
         controller.addSeed("https://en.wikipedia.org/wiki/Bishop_Rock,_Isles_of_Scilly");
 
+        // Start the crawl. This is a blocking operation, meaning that the code
+        // will reach the line after this only when crawling is finished.
         controller.start(Crawler.class, numberOfCrawlers);
     }
 
@@ -79,8 +99,9 @@ public class Crawler extends WebCrawler {
             return false;
         }
 
-        // Only accept the url if it is in the "www.ics.uci.edu" domain and protocol is "http".
-        return href.startsWith("http://www.ics.uci.edu/");
+        // Only accept the url if it is in the TARGET_DOMAIN domain and protocol is "https".
+        //return href.startsWith("http://www.ics.uci.edu/"); // TODO remove if approved
+        return href.startsWith(TARGET_DOMAIN);
     }
 
     /**
@@ -111,21 +132,36 @@ public class Crawler extends WebCrawler {
 
         if (page.getParseData() instanceof HtmlParseData) {
             HtmlParseData htmlParseData = (HtmlParseData) page.getParseData();
-            String text = htmlParseData.getText();
+            String text = htmlParseData.getText(); // TODO necessary ? remove if approved
             String html = htmlParseData.getHtml();
-            Set<WebURL> links = htmlParseData.getOutgoingUrls();
+            Set<WebURL> links = htmlParseData.getOutgoingUrls(); // TODO necessary to store that ?
 
             logger.debug("Text length: {}", text.length());
             logger.debug("Html length: {}", html.length());
             logger.debug("Number of outgoing links: {}", links.size());
 
+            // Parse html with jsoup and retrieve the principal components of web pages if present
+            Document doc = Jsoup.parse(html);
+
+            // Retrieve title
+            String title = doc.head().getElementsByTag("title").first().text();
+
+            // Retrieve h1
+            String h1 = doc.body().getElementsByTag("h1").first().text();
+
+            // Get categories
+            List<String> categories = doc.getElementById("mw-normal-catlinks").getElementsByTag("li").eachText();
+
             // Write everything to Solr
             SolrInputDocument doSolrInputDocument = new SolrInputDocument();
             doSolrInputDocument.setField("id", page.hashCode());
-            doSolrInputDocument.setField("text", text);
-            doSolrInputDocument.setField("html", text);
+            // doSolrInputDocument.setField("text", text); // TODO necessary ? remove if approved
+            doSolrInputDocument.setField("html", html);
+            doSolrInputDocument.setField("title", title);
+            doSolrInputDocument.setField("h1", h1);
+            doSolrInputDocument.setField("categories", categories);
             doSolrInputDocument.setField("numberOfLinks", links);
-            SolrClient solr = new HttpSolrClient.Builder(SOLR_URL).build();
+            SolrClient solr = new HttpSolrClient.Builder(SOLR_URL).build(); // if instantiated as static field of the class, it doesn't create new fields (throw exception "unknown field")
             try {
                 solr.add(doSolrInputDocument);
                 solr.commit(true, true);
