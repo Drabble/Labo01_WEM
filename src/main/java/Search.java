@@ -35,9 +35,9 @@ public class Search {
         final Map<String, String> queryParamMap = new HashMap<String, String>();
 
         // boost title and h1 more than description more than categories
-        queryParamMap.put("q", String.format("(title:%s OR h1:%s)^3 (description:%s)^1.5 (categories:%s)^1",
-                query, query, query, query));
-        queryParamMap.put("fl", "title,url,description,score");
+        queryParamMap.put("q", String.format("(title:%s OR h1:%s)^5 (description:%s)^4 (categories:%s)^1.6 (content:%s)^1",
+                query, query, query, query, query));
+        queryParamMap.put("fl", "title,h1,url,description,score");
         MapSolrParams queryParams = new MapSolrParams(queryParamMap);
 
         // Run query and display response
@@ -58,6 +58,7 @@ public class Search {
             System.out.println("===========================================");
             for (SolrDocument document : documents) {
                 System.out.println("title: " + document.get("title"));
+                System.out.println("h1: " + document.get("h1"));
                 System.out.println("url: " + document.get("url"));
                 System.out.println("description: " + document.get("description"));
                 System.out.println("score: " + document.get("score"));

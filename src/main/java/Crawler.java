@@ -16,6 +16,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -42,7 +43,7 @@ public class Crawler extends WebCrawler {
     private final static String TARGET_DOMAIN = "https://en.wikipedia.org/wiki/";
 
     // not working if fields do not already exist in index
-    //private final static SolrClient solr = new HttpSolrClient.Builder(SOLR_URL).build();
+    private final static SolrClient solr = new HttpSolrClient.Builder(Config.SOLR_URL).build();
 
     /**
      * Configure and start the crawler
@@ -157,29 +158,33 @@ public class Crawler extends WebCrawler {
             String h1 = doc.body().getElementsByTag("h1").first().text();
             // First paragraph of wikipedia pages contains a short description
             String description = doc.body().getElementById("mw-content-text").getElementsByTag("p").first().text();
+            // Get all body content
+            String content = doc.body().text();
 
             // Get categories
-            List<String> categories = doc.getElementById("mw-normal-catlinks").getElementsByTag("li").eachText();
+            List<String> categories = new ArrayList<>();
+            if (doc.getElementById("mw-normal-catlinks") != null)
+                categories = doc.getElementById("mw-normal-catlinks").getElementsByTag("li").eachText();
 
             // Write everything to Solr
             SolrInputDocument doSolrInputDocument = new SolrInputDocument();
-            doSolrInputDocument.addField("id", page.hashCode());
+            doSolrInputDocument.setField("id", page.hashCode());
             // doSolrInputDocument.setField("text", text); // TODO necessary ? remove if approved
             // doSolrInputDocument.setField("html", html); // TODO necessary ?
-            doSolrInputDocument.addField("url", page.getWebURL().getURL());
-            doSolrInputDocument.addField("title", title);
-            doSolrInputDocument.addField("h1", h1);
-            doSolrInputDocument.addField("description", description);
-            doSolrInputDocument.addField("categories", categories);
+            doSolrInputDocument.setField("url", page.getWebURL().getURL());
+            doSolrInputDocument.setField("title", title);
+            doSolrInputDocument.setField("h1", h1);
+            doSolrInputDocument.setField("description", description);
+            doSolrInputDocument.setField("content", content);
+            doSolrInputDocument.setField("categories", categories);
             // doSolrInputDocument.setField("numberOfLinks", links); // TODO necessary ?
-            SolrClient solr = new HttpSolrClient.Builder(Config.SOLR_URL).build(); // if instantiated as static field of the class, it doesn't create new fields (throw exception "unknown field")
+            //SolrClient solr = new HttpSolrClient.Builder(Config.SOLR_URL).build(); // if instantiated as static field of the class, it doesn't create new fields (throw exception "unknown field")
             try {
                 solr.add(doSolrInputDocument);
                 solr.commit(true, true);
-            } catch (SolrServerException e) {
+            } catch (SolrServerException | IOException e) {
                 e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
+                return;
             }
         }
 
