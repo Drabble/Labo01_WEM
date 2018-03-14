@@ -73,9 +73,58 @@ than the others thanks to the weight given for title, h1 and description.
 ![alt text](img/specific_query2_console.png "Specific query console")
 
 ## 4 Theoretical questions
-TODO
+
+- **Please explain which strategy to adopt for indexing multilingual pages 
+(each page contains its own language but the corpus contains pages in many 
+different languages). What must be particulary taken care of ?
+Explain how you would do it.**
+
+  We see 3 possibilities (from the easiest to the most difficult to implement):
+  1. For sites that can have seperate url for each language,
+  execute two different crawlers sequentially by specifying for each the
+  target domain to visit (all urls that start with this target domain should be
+  visited only). For example for Wikipedia all french pages start 
+  with `https://fr.wikipedia.org` (notice the **fr**) while all english pages start
+  with `https://en.wikipedia.org`. All the crawlers connect to the same Solr core
+  to build the index with multilingual pages.
+  2. For sites that do not seperate url for each language, the crawler should
+  modify its HTTP request with an Accept-Language field set in the HTTP header,
+  accordingly to the language we want to index. Rerun the crawler for each different
+  language. However, if the visited page doesn't take care of the wanted language,
+  then the default one will be displayed. This case should be handled by the crawler to
+  avoid inserting the same page and language multiple times.
+  3. Also for sites that do not seperate url for each language, a crawler could be
+  run from different geographic location. The visited page understand the origin
+  of the ip of the crawler and display its page in the appropriate language. Again,
+  the crawler should take care of default languages.
+  
+- **Solr do by default fuzzy search. Explain what it is and how Solr implements it. 
+Some firstnames may have many spelling variations (for example Caitlin : 
+Caitilin, Caitlen, Caitlinn, Caitlyn, Caitlyne, Caitlynn, Cateline, Catelinn, 
+Catelyn, Catelynn, Catlain, Catlin, Catline, Catlyn, Catlynn, Kaitlin, Kaitlinn, 
+Kaitlyn, Kaitlynn, Katelin, Katelyn, Katelynn, etc). 
+Is it possible to use Solr's fuzzy search to make a search taking care of these variations, 
+while keeping still a good performance? If not, which alternative(s) do you see ? Justify your answer.**
+
+  Fuzzy search discover terms that are similar to a specified term without necessarily being an exact match.
+  You specify an allowed maximum edit distance, and Solr searches any terms within that edit distance from the base term 
+  (and, then, the docs containing those terms) are matched. the score corresponds to the similarity of the original word 
+  with each generated word. The highest scores represent bigger similarity.
+ 
+  Taking care of all the variations of Caitlin is possible. We have to use the `~` opertor and specify and distance
+  of 2 like so : `aitlin~2`. If it does not cover enough variations we can combine fuzzy searches with `OR` operator :
+  `Caiteli~2 OR Katelyn~2`.
+  
+  However, in many cases, stemming will produce the same results as fuzzy search.
+  
+  Sources :
+  
+  - [https://stackoverflow.com/questions/16655933/fuzzy-search-in-solr](https://stackoverflow.com/questions/16655933/fuzzy-search-in-solr)
+  - [https://lucene.apache.org/solr/guide/6_6/the-standard-query-parser.html#TheStandardQueryParser-FuzzySearches](https://lucene.apache.org/solr/guide/6_6/the-standard-query-parser.html#TheStandardQueryParser-FuzzySearches)
 
 ## Dependencies
+
+The following libraries are used in this project :
 
 - crawler4j 4.3 [https://github.com/yasserg/crawler4j](https://github.com/yasserg/crawler4j)
 - solrj 7.2.1 [https://lucene.apache.org/solr/guide/7_1/using-solrj.html](https://lucene.apache.org/solr/guide/7_1/using-solrj.html)
