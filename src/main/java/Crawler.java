@@ -40,9 +40,10 @@ public class Crawler extends WebCrawler {
                                                          + "|wav|avi|mov|mpeg|ram|m4v|pdf"
                                                          + "|rm|smil|wmv|swf|wma|zip|rar|gz))$");
 
+    // Only accepted domain to visit links
     private final static String TARGET_DOMAIN = "https://en.wikipedia.org/wiki/";
 
-    // not working if fields do not already exist in index
+    // Client to Solr core
     private final static SolrClient solr = new HttpSolrClient.Builder(Config.SOLR_URL).build();
 
     /**
@@ -62,8 +63,8 @@ public class Crawler extends WebCrawler {
         // Be polite: Make sure that we don't send more than 1 request per 0.5 second
         config.setPolitenessDelay(500);
 
-        // maximum crawl depth
-        config.setMaxDepthOfCrawling(2);
+        // maximum crawl depth - equals to infinite when not set
+        //config.setMaxDepthOfCrawling(2);
 
         // maximum number of pages to crawl
         config.setMaxPagesToFetch(80);
@@ -79,7 +80,7 @@ public class Crawler extends WebCrawler {
 
         controller.addSeed("https://en.wikipedia.org/wiki/Bishop_Rock,_Isles_of_Scilly");
 
-        SolrClient solr = new HttpSolrClient.Builder(Config.SOLR_URL).build();
+        // Delete all the data in the core
         solr.deleteByQuery( "*:*" );
         solr.commit();
 
@@ -90,10 +91,10 @@ public class Crawler extends WebCrawler {
 
 
     /**
-     * Pour chaque lien rencontré par le crawler durant sa visite, il demandera à cette
-     * méthode si la page doit être visitée (téléchargée). A vous de faire en sorte que les
-     * ressources vraisemblablement non-supportées (non-textuelles) ou inutiles ne soient
-     * pas visitées. Vous limiterez aussi la visite uniquement au domaine ciblé.
+     * The crawler will call this method for each link found. This method will tell it whether it must visit
+     * the page or not.
+     * Here we exclude every file that with an unsupported extension from the list of filters and every
+     * web page that is not on the target domain (wikipedia).
      *
      * @param referringPage
      * @param url
@@ -102,17 +103,19 @@ public class Crawler extends WebCrawler {
     @Override
     public boolean shouldVisit(Page referringPage, WebURL url) {
         String href = url.getURL().toLowerCase();
+
         // Ignore the url if it has an extension that matches our defined set of image extensions.
         if (FILTERS.matcher(href).matches()) {
             return false;
         }
 
-        // Only accept the url if it is in the TARGET_DOMAIN domain and protocol is "https".
-        //return href.startsWith("http://www.ics.uci.edu/"); // TODO remove if approved
+        // Only accept the url if it is in the TARGET_DOMAIN domain and protocol is "https"
         return href.startsWith(TARGET_DOMAIN);
     }
 
     /**
+     * This method is called for each visited pages by the crawler.
+     * Here we retrieve data from the HTTP response
      * Cette méthode sera appelée par le crawler pour chaque page visitée. Vous pouvez ici
      * décider de limiter l’indexation uniquement aux formats supportés, tous les cas ne
      * pouvant pas être évités avec la méthode précédente. Cette méthode mettra en forme
@@ -140,11 +143,9 @@ public class Crawler extends WebCrawler {
 
         if (page.getParseData() instanceof HtmlParseData) {
             HtmlParseData htmlParseData = (HtmlParseData) page.getParseData();
-            String text = htmlParseData.getText(); // TODO necessary ? remove if approved
             String html = htmlParseData.getHtml();
-            Set<WebURL> links = htmlParseData.getOutgoingUrls(); // TODO necessary to store that ?
+            Set<WebURL> links = htmlParseData.getOutgoingUrls(); // TODO Est-ce que ça peut être utile pour déterminer les pages pivots et les pages de référence?
 
-            logger.debug("Text length: {}", text.length());
             logger.debug("Html length: {}", html.length());
             logger.debug("Number of outgoing links: {}", links.size());
 
@@ -169,16 +170,12 @@ public class Crawler extends WebCrawler {
             // Write everything to Solr
             SolrInputDocument doSolrInputDocument = new SolrInputDocument();
             doSolrInputDocument.setField("id", page.hashCode());
-            // doSolrInputDocument.setField("text", text); // TODO necessary ? remove if approved
-            // doSolrInputDocument.setField("html", html); // TODO necessary ?
             doSolrInputDocument.setField("url", page.getWebURL().getURL());
             doSolrInputDocument.setField("title", title);
             doSolrInputDocument.setField("h1", h1);
             doSolrInputDocument.setField("description", description);
             doSolrInputDocument.setField("content", content);
             doSolrInputDocument.setField("categories", categories);
-            // doSolrInputDocument.setField("numberOfLinks", links); // TODO necessary ?
-            //SolrClient solr = new HttpSolrClient.Builder(Config.SOLR_URL).build(); // if instantiated as static field of the class, it doesn't create new fields (throw exception "unknown field")
             try {
                 solr.add(doSolrInputDocument);
                 solr.commit(true, true);

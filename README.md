@@ -8,7 +8,7 @@ In this step we build the Java class "Crawler" which performs the crawling and i
 of found documents in Solr. To communicate with Solr and the crawler, we use Solrj API
 and to build the crawler we use crawler4j.
 
-In Solr, the core is named "crawler" and the index built contains 80 documents :
+In Solr, the core is named "crawler" and the index built contains 80 documents which is the limit we set with the function `setMaxPagesToFetch()`:
 ![alt text](img/solr_core_admin.png "Crawler core admin")
 
 ## 2. More precise indexing
