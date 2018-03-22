@@ -177,9 +177,9 @@ public class Crawler2 extends WebCrawler {
 
         Header[] responseHeaders = page.getFetchResponseHeaders();
         if (responseHeaders != null) {
-            //logger.debug("Response headers:");
+            logger.debug("Response headers:");
             for (Header header : responseHeaders) {
-                //logger.debug("\t{}: {}", header.getName(), header.getValue());
+                logger.debug("\t{}: {}", header.getName(), header.getValue());
             }
         }
 
