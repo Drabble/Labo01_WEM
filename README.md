@@ -10,13 +10,21 @@ Avant de commencer, il faut intaller et démarrer Solr en local.
 
 ## 1. Crawler
 
-Pour cette première partie, il s'agit d'abord de créer un core Solr que nous avons nommé **core1** et créé avec la commande `$ bin/solr create -c core1`. Ce core n'a pas de configuration partiuclière, c'est le core par défaut de Solr. Le fichier `Crawler1.java` se charge de crawler et d'indexer le contenu des pages visitées pour ce core.
+Pour cette première partie, il s'agit d'abord de créer un core Solr que nous avons nommé **core1** avec la commande `$ bin/solr create -c core1`. Ce core n'a pas de configuration partiuclière, c'est le core par défaut de Solr. Le fichier `Crawler1.java` se charge de crawler et d'indexer le contenu des pages visitées pour ce core.
 
-Le crawler commence depuis une page spécifique Wikipedia `https://en.wikipedia.org/wiki/Bishop_Rock,_Isles_of_Scilly` et visite un nombre de page maximum tout en se limitant à une certaine profondeur et en restant dans le domaine de Wikipedia (voir la configuration dans `Crawler1.java`) étant donné que c'est le site que nous souhaitons indexer.
+Le crawler commence depuis une page spécifique Wikipedia (seed) `https://en.wikipedia.org/wiki/Bishop_Rock,_Isles_of_Scilly` et visite un nombre de page maximum de 80 pages tout en se limitant à une profondeur de 2 et en restant dans le domaine de Wikipedia (voir la configuration dans `Crawler1.java`) étant donné que c'est le site que nous souhaitons indexer.
 
-À chaque page visitée, nous indexons son contenu dans Solr. À la fin des opérations, nous pouvons constater que le core1 a été indexé avec le nombre de documents paramétré.
+À chaque page visitée, nous indexons son contenu dans Solr. À la fin des opérations, nous pouvons constater que le core1 a été indexé avec 80 documents comme défini dans la configuration.
 
 ![alt text](img/crawler1.png "Crawler1")
+
+Pour le reste de la configuration du crawler, nous avons défini un politeness delay de 500ms soit 0.5 secondes entre chaque requêtes afin de ne pas risquer de se faire blacklister, nous avons désactivé l'inclusion de données binaires et activer l'inclusion de pages https.
+
+Dans la méthode `shouldVisit` nous excluons tous les fichiers ayant une extension contenue dans la constante `FILTERS` définie dans le fichier `Config.java` et toutes les pages dont l'adresse ne commence pas par le domaine cible aussi défini dans le fichier `Config.java`.
+
+La méthode `visit` du crawler 1 récupère la page HTML, la parse à l'aide de la librairie jSoup, crée un document Solr avec le champ id (hashcode de la page) et le champs text_en (contenu text de la page) et envoie le document à Solr.
+
+Le commit de l'envoi des documents Solr se fait seulement tous les 50 documents récupérés afin de diminuer la charge. L'envoi se fait à l'aide de la classe `SolrClient`, plus précisément sa sous-classe `ConcurrentUpdateSolrClient` qui gère la concurrence car le crawler peut utiliser plusieurs threads.
 
 ## 2. Indexation spécialisée
 
@@ -38,11 +46,13 @@ Et la class `infobox` qui est un tableau qui contient souvent des informations u
 
 ![alt text](img/infobox.png "Infobox")
 
-Naturellement, le choix de ces éléments est spécifique au domaine que nous ciblons. Dans ce cas nous savons que nous sommes entrain de parser des pages html Wikipedia, qui ont toutes la même structure. Nous utilisons donc jSoup avec les id et les noms des balises pour identifier facilement les éléments.
+Naturellement, le choix de ces éléments est spécifique au domaine que nous ciblons. Dans ce cas nous savons que nous sommes entrain de parser des pages HTML Wikipedia, qui ont toutes la même structure. Nous utilisons donc jSoup avec les id et les noms des balises pour identifier facilement les éléments.
 
 De plus, nous stockons l'url étant donné que nous voulons accéder à la page contenant l'information recherchée, ainsi que le contenu de cette page qui est tout le texte présent dans la balise `<body>`.
 
 Le core2 contient quant à lui plus de documents. Nous avons limité l'index à 1000 documents et supprimé la limitation de la profondeur afin d'être sur de récupérer au moins 1000 documents.
+
+Le reste de sa configuration est similaire au crawler 1, apart pour sa fonction `visit` qui parse les pages HTML avec jSoup et qui les insère dans Solr dans leurs champs spécifique.
 
 ## 3. Recherche
 
