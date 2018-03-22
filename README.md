@@ -105,8 +105,6 @@ Si nous cherchons `smallest inhabited islands` cela retourne 35 documents dont 5
 
 - **Solr permet par défaut de faire de la recherche floue (fuzzy search). Veuillez expliquer de quoi il s’agit et comment Solr l’a implémenté. Certains prénoms peuvent avoir beaucoup de variation orthographiques (par exemple Caitlin : Caitilin, Caitlen, Caitlinn, Caitlyn, Caitlyne, Caitlynn, Cateline, Catelinn, Catelyn, Catelynn, Catlain, Catlin, Catline, Catlyn, Catlynn, Kaitlin, Kaitlinn, Kaitlyn, Kaitlynn, Katelin, Katelyn, Katelynn, etc). Est-il possible d’utiliser, tout en gardant une bonne performance, la recherche floue mise à disposition par Solr pour faire une recherche prenant en compte de telles variations ? Sinon quelle(s) alternative(s) voyez-vous, veuillez justifier votre réponse.**
 
-  TODO traduire
-
   La recherche fuzzy search découvre les termes qui sont similaires pour une requête sans forcément avoir un correspondance exacte.
   On peut spécifier une distance de modification maximum et Solr va rechercher tous les termes qui sont dans cette distance de modification
   à partir du terme de base de la recherche. Le score des recherches sera relatif à la similarité entre le mot original
