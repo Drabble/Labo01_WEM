@@ -46,13 +46,13 @@ Et la class `infobox` qui est un tableau qui contient souvent des informations u
 
 ![alt text](img/infobox.png "Infobox")
 
-Naturellement, le choix de ces éléments est spécifique au domaine que nous ciblons. Dans ce cas nous savons que nous sommes entrain de parser des pages HTML Wikipedia, qui ont toutes la même structure. Nous utilisons donc jSoup avec les id et les noms des balises pour identifier facilement les éléments.
+Naturellement, le choix de ces éléments est spécifique au domaine que nous ciblons. Dans ce cas nous savons que nous sommes entrain de parser des pages HTML Wikipedia, qui ont presque toutes la même structure. Nous utilisons donc jSoup avec les id et les noms des balises pour identifier facilement les éléments.
 
 De plus, nous stockons l'url étant donné que nous voulons accéder à la page contenant l'information recherchée, ainsi que le contenu de cette page qui est tout le texte présent dans la balise `<body>`.
 
 Le core2 contient quant à lui plus de documents. Nous avons limité l'index à 1000 documents et supprimé la limitation de la profondeur afin d'être sur de récupérer au moins 1000 documents.
 
-Le reste de sa configuration est similaire au crawler 1, apart pour sa fonction `visit` qui parse les pages HTML avec jSoup et qui les insère dans Solr dans leurs champs spécifique.
+Le reste de sa configuration est similaire au crawler 1, apart pour sa fonction `visit` qui parse les pages HTML avec jSoup et qui les insère dans Solr dans leurs champs spécifiques.
 
 ## 3. Recherche
 
@@ -80,6 +80,8 @@ Voici les 10 premiers documents retournés d'une recherche avec `Isles of Scilly
 Si nous cherchons `smallest inhabited islands` cela retourne 35 documents dont 5 non relevants sur les 10 premiers. Les 3 premiers ont un score beaucoup plus élevé que le reste et les deux pages relevantes s'y trouvent. Nous ne comprenons par contre pas pourquoi la page wikipedia sur le chiffre 11 vient en premier. Elle ne contient aucun mot ressemblant à inhabited ou à island et ne contient que 2 fois le mot smallest.
 
 ![alt text](img/specific_query2_console.png "Specific query console")
+
+Notre application de recherche utilise un simple `HttpSolrClient` de la librairie Solrj afin de communiquer avec le serveur Solr. Cette application prend en paramêtres (arguments) les termes qui doivent être recherché sur le core 2 de Solr, préalablement rempli par le crawler 2. Elle utilise un objet de type `MapSolrParams` qui contient la requête définie ci-dessus avec ses différents paramêtres et est envoyée à l'aide du client Solrj. Finalement son résultat est affiché à l'écran.
 
 ## 4. Questions théoriques
 
@@ -135,6 +137,12 @@ Si nous cherchons `smallest inhabited islands` cela retourne 35 documents dont 5
 ## Conclusion
 
 Ce labo nous a permis de comprendre comment constuire un index Solr en effectuant un crawling du web et en indexant du contenu spécifique.
+
+Le crawler que nous avons obtenu fonctionne comme nous le voulions.
+
+Nous avons rencontré un problème où nous n'obtenions que ~970 documents à la fin du crawling sur 1000 documents. Cela venait du fait que certaines pages wikipedia ne contiennent pas de balise `<p>` avec la description ou pas de tableau infobox. Nous avons pris du temps à identifié la source du problème à cause de la quantité d'output que produit le crawler. Nous avions d'abord suspecté que le problème venait de la concurrence ou du nombre de pages accessible depuis la page wikipedia que nous avions choisie.
+
+Pour le recherche (partie 3) nous avons plusieurs résultats non relevants qui apparaissent dans les 10 premiers résultats, notamment la page wikipedia sur le chiffre 11 qui a un grand score contrairement aux autres documents non relevants. Nous n'avons, à ce jour, pas détérminé la cause de cette erreur.
 
 ## Dépendances
 
