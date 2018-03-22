@@ -71,6 +71,9 @@ public class Crawler1 extends WebCrawler {
         // Start the crawl. This is a blocking operation, meaning that the code
         // will reach the line after this only when crawling is finished.
         controller.start(Crawler1.class, numberOfCrawlers);
+
+        // if any doc left
+        solr.commit(true, true);
     }
 
 

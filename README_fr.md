@@ -34,11 +34,15 @@ Nous explorons également la section des catégories qui donne un poids importan
 
 ![alt text](img/categories.png "Categories")
 
+Et la class `infobox` qui est un tableau qui contient souvent des informations utiles sur le sujet de la page. Par exemple pour les iles de Scilly il y a la localisation, les coordonnées, la population et sa densité, etc.
+
+![alt text](img/infobox.png "Infobox")
+
 Naturellement, le choix de ces éléments est spécifique au domaine que nous ciblons. Dans ce cas nous savons que nous sommes entrain de parser des pages html Wikipedia, qui ont toutes la même structure. Nous utilisons donc jSoup avec les id et les noms des balises pour identifier facilement les éléments.
 
 De plus, nous stockons l'url étant donné que nous voulons accéder à la page contenant l'information recherchée, ainsi que le contenu de cette page qui est tout le texte présent dans la balise `<body>`.
 
-Le core2 contient quandt à lui plus de documents. Nous avons limité l'index à 1000 documents et supprimé la limitation de la profondeur afin d'être sur de récupérer au moins 1000 documents.
+Le core2 contient quant à lui plus de documents. Nous avons limité l'index à 1000 documents et supprimé la limitation de la profondeur afin d'être sur de récupérer au moins 1000 documents.
 
 ## 3. Recherche
 
@@ -55,7 +59,7 @@ Une fois l'index construit, testons la recherche. Ici nous exécutons deux requ�
 Ensuite nous avons implémenté cette fonctionnalité de recherche dans la classe `Search.java` qui retourne en plus le score pour chaque document retourné. Pour donner plus d'importance dans le titre et les champs récupérés au point précédent, nous utilisons la syntaxe spécifique de lucene:
 
 ```
-q:(title:<qry> OR h1:<qry>)^5 (description:<qry>)^3 (categories:<qry>)^2 (content:<qry>)^1
+q:(title:<qry> OR h1:<qry>)^5 (description:<qry>)^3 (infobox:%s)^2 (categories:<qry>)^1.6 (content:<qry>)^1
 ```
 où `<qry>` est la requête de l'utilisateur. L'importance est donné par l'exposant. Plus il est grand, plus l'importance l'est aussi. La requête est passé en argument de la classe Search.java.
 

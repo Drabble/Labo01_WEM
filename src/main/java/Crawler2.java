@@ -14,6 +14,7 @@ import org.apache.solr.client.solrj.impl.ConcurrentUpdateSolrClient;
 import org.apache.solr.common.SolrInputDocument;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -124,8 +125,24 @@ public class Crawler2 extends WebCrawler {
 
             // Retrieve h1
             String h1 = doc.body().getElementsByTag("h1").first().text();
+
+            // Retrieve the infobox
+            String infobox = "";
+            Element infoboxElement = doc.body().getElementsByClass("infobox").first();
+            if(infoboxElement != null){
+                infobox = infoboxElement.text();
+            }
+
             // First paragraph of wikipedia pages contains a short description
-            String description = doc.body().getElementById("mw-content-text").getElementsByTag("p").first().text();
+            String description = "";
+            Element contentElement = doc.body().getElementById("mw-content-text");
+            if(contentElement != null) {
+                Element descriptionElement = contentElement.getElementsByTag("p").first();
+                if (descriptionElement != null) {
+                    description = descriptionElement.text();
+                }
+            }
+
             // Get all body content
             String content = doc.body().text();
 
@@ -140,6 +157,7 @@ public class Crawler2 extends WebCrawler {
             doSolrInputDocument.setField("url", page.getWebURL().getURL());
             doSolrInputDocument.setField("title", title);
             doSolrInputDocument.setField("h1", h1);
+            doSolrInputDocument.setField("infobox", infobox);
             doSolrInputDocument.setField("description", description);
             doSolrInputDocument.setField("content", content);
             doSolrInputDocument.setField("categories", categories);
@@ -159,9 +177,9 @@ public class Crawler2 extends WebCrawler {
 
         Header[] responseHeaders = page.getFetchResponseHeaders();
         if (responseHeaders != null) {
-            logger.debug("Response headers:");
+            //logger.debug("Response headers:");
             for (Header header : responseHeaders) {
-                logger.debug("\t{}: {}", header.getName(), header.getValue());
+                //logger.debug("\t{}: {}", header.getName(), header.getValue());
             }
         }
 
