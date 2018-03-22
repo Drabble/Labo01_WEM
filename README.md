@@ -8,6 +8,8 @@ Le but de ce laboratoire est de crawler un site web et d'indexer les pages visit
 
 Avant de commencer, il faut intaller et démarrer Solr en local.
 
+Les deux cores que nous avons utilisé se nomment core1 et core2 et leurs configurations se trouvent dans le dossier core_configuration à la racine du projet.
+
 ## 1. Crawler
 
 Pour cette première partie, il s'agit d'abord de créer un core Solr que nous avons nommé **core1** avec la commande `$ bin/solr create -c core1`. Ce core n'a pas de configuration partiuclière, c'est le core par défaut de Solr. Le fichier `Crawler1.java` se charge de crawler et d'indexer le contenu des pages visitées pour ce core.
