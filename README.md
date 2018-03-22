@@ -26,7 +26,7 @@ Dans la méthode `shouldVisit` nous excluons tous les fichiers ayant une extensi
 
 La méthode `visit` du crawler 1 récupère la page HTML, la parse à l'aide de la librairie jSoup, crée un document Solr avec le champ id (hashcode de la page) et le champs text_en (contenu text de la page) et envoie le document à Solr.
 
-Le commit de l'envoi des documents Solr se fait seulement tous les 50 documents récupérés afin de diminuer la charge. L'envoi se fait à l'aide de la classe `SolrClient`, plus précisément sa sous-classe `ConcurrentUpdateSolrClient` qui gère la concurrence car le crawler peut utiliser plusieurs threads.
+Le commit de l'envoi des documents Solr se fait seulement tous les 50 documents récupérés afin de diminuer la charge. L'envoi se fait à l'aide de la classe `SolrClient`, plus précisément sa sous-classe `ConcurrentUpdateSolrClient` qui gère la concurrence car le crawler peut utiliser plusieurs threads. Dans notre code, nous définissons le nombre de thread à l'aide de `Runtime.getRuntime().availableProcessors();`
 
 ## 2. Indexation spécialisée
 
@@ -52,9 +52,9 @@ Naturellement, le choix de ces éléments est spécifique au domaine que nous ci
 
 De plus, nous stockons l'url étant donné que nous voulons accéder à la page contenant l'information recherchée, ainsi que le contenu de cette page qui est tout le texte présent dans la balise `<body>`.
 
-Le core2 contient quant à lui plus de documents. Nous avons limité l'index à 1000 documents et supprimé la limitation de la profondeur afin d'être sur de récupérer au moins 1000 documents.
+Le core2 contient quant à lui plus de documents. Nous avons limité l'index à 1000 documents et supprimé la limitation de la profondeur afin d'être sûr de récupérer le maximum de documents.
 
-Le reste de sa configuration est similaire au crawler 1, apart pour sa fonction `visit` qui parse les pages HTML avec jSoup et qui les insère dans Solr dans leurs champs spécifiques.
+Le reste de sa configuration est similaire au crawler 1, à part pour sa fonction `visit` qui parse les pages HTML avec jSoup et qui les insère dans Solr dans leurs champs spécifiques.
 
 ## 3. Recherche
 
@@ -64,14 +64,15 @@ Une fois l'index construit, testons la recherche. Ici nous exécutons deux requ�
 
 ![alt text](img/default_query.png "Default query")
 
-2. Recherche avec un mot présent dans l'index : `Isles of Scilly`. Si nous respectons la logique, nous voyons que cela ne fonctionne pas. Il faut préciser le nom des champs dans lesquels la recherche doit se faire : `title h1:Isles of Scilly`.
+2. Recherche avec un mot présent dans l'index : `Isles of Scilly`. Si nous respectons la logique et que nous tapons `*:Isles of Scilly`, nous voyons que cela ne fonctionne pas. Il faut préciser le nom des champs dans lesquels la recherche doit se faire : `title h1:Isles of Scilly`. Il doit être possible de modifier cela au niveau du RequestHandler du fichier conf/solrconfig.xml pour qu'il sache par défaut sur quels champs effectuer la recherche.
 
 ![alt text](img/specific_query.png "Specific query")
 
 Ensuite nous avons implémenté cette fonctionnalité de recherche dans la classe `Search.java` qui retourne en plus le score pour chaque document retourné. Pour donner plus d'importance dans le titre et les champs récupérés au point précédent, nous utilisons la syntaxe spécifique de lucene:
 
 ```
-q:(title:<qry> OR h1:<qry>)^5 (description:<qry>)^3 (infobox:%s)^2 (categories:<qry>)^1.6 (content:<qry>)^1
+q:(title:<qry> OR h1:<qry>)^5 (description:<qry>)^3 (infobox:%s)^2
+(categories:<qry>)^1.6 (content:<qry>)^1
 ```
 où `<qry>` est la requête de l'utilisateur. L'importance est donné par l'exposant. Plus il est grand, plus l'importance l'est aussi. La requête est passé en argument de la classe Search.java.
 
@@ -91,15 +92,14 @@ Notre application de recherche utilise un simple `HttpSolrClient` de la librairi
 
   Pour le crawling, nous voyons 3 possibilités de la plus facile à la plus difficilement réalisable selon nous:
 
-  1. Pour les sites avec des urls séparées pour chaque langue, exécuter deux crawlers différents en restreignant pour 
-  chacun le domaine cible à la langue voulue. Par example pour Wikipedia les pages en français commencent par 
+  1. Pour les sites avec des urls séparées pour chaque langue, exécuter deux crawlers différents en restreignant pour
+  chacun le domaine cible à la langue voulue. Par example pour Wikipedia les pages en français commencent par
   `https://fr.wikipedia.org` (notons le **fr**) alors que les pages en anglais commencent par `https://en.wikipedia.org`.
   Par contre, si la page visitée ne prend pas en compte la langue demandée,
   elle va être retournée dans une autre langue, et dans ce cas il ne faudra pas l'enregistrer sous la mauvaise langue.
   Pour savoir si la langue retournée est celle qu'on a demandé on peut se baser sur trois choses. Le header `Content-Language`
   dans la réponse HTTP retournée par le serveur, l'attribut lang dans la balise html `<html lang="en">` ou encore à l'aide
   d'un outil qui permet de detecter la langue d'un texte.
-  
 
   2. Pour les sites qui ne gère pas la langue dans l'url, le crawler peut modifier ses requêtes HTTP en précisant
   la langue dans le champ `Accept-Language` des headers HTTP. Il devra ensuite faire une requête pour chaque
@@ -111,10 +111,10 @@ Notre application de recherche utilise un simple `HttpSolrClient` de la librairi
   sera affiché dans une autre langue qui correspond à la localisation de l'IP.
   Il faudra denouveau faire attention aux langues non supportées.
 
-  Ensuite pour l'indexation, en utilisant un seul corpus qui contient plusieurs langues, il faut modifier le schéma Solr 
-  et les fichiers solrconfig. Le point 2) du blog de Pavlo Bogomolenko 
-  (http://pavelbogomolenko.github.io/multi-language-handling-in-solr.html) nous explique en détail la manipulation mais 
-  de manière générale il s'agit de définir les langues puis d'associer à chaque champ sa langue, en gardant un champ pour 
+  Ensuite pour l'indexation, en utilisant un seul corpus qui contient plusieurs langues, il faut modifier le schéma Solr
+  et les fichiers solrconfig. Le point 2) du blog de Pavlo Bogomolenko
+  (http://pavelbogomolenko.github.io/multi-language-handling-in-solr.html) nous explique en détail la manipulation mais
+  de manière générale il s'agit de définir les langues puis d'associer à chaque champ sa langue, en gardant un champ pour
   la langue par défaut.
 
 - **Solr permet par défaut de faire de la recherche floue (fuzzy search). Veuillez expliquer de quoi il s’agit et comment Solr l’a implémenté. Certains prénoms peuvent avoir beaucoup de variation orthographiques (par exemple Caitlin : Caitilin, Caitlen, Caitlinn, Caitlyn, Caitlyne, Caitlynn, Cateline, Catelinn, Catelyn, Catelynn, Catlain, Catlin, Catline, Catlyn, Catlynn, Kaitlin, Kaitlinn, Kaitlyn, Kaitlynn, Katelin, Katelyn, Katelynn, etc). Est-il possible d’utiliser, tout en gardant une bonne performance, la recherche floue mise à disposition par Solr pour faire une recherche prenant en compte de telles variations ? Sinon quelle(s) alternative(s) voyez-vous, veuillez justifier votre réponse.**
@@ -127,7 +127,7 @@ Notre application de recherche utilise un simple `HttpSolrClient` de la librairi
   Pour prendre en compte toutes les variations de Caitlin, il faut utiliser l'operateur `~` et spécifier une distance de 2
   commme ça : `aitlin~2`. Si ça ne couvre pas assez de variations, on peut combiner le fuzzy search avec l'opérateur `OR`:
   `Caiteli~2 OR Katelyn~2`.
-  
+
   Dans beaucoup de cas, le stemming peut donner des résultats similaires au fuzzy search.
   Il y a aussi la lemmatization.
 
