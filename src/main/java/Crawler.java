@@ -10,6 +10,7 @@ import edu.uci.ics.crawler4j.robotstxt.RobotstxtConfig;
 import edu.uci.ics.crawler4j.robotstxt.RobotstxtServer;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.impl.ConcurrentUpdateSolrClient;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.common.SolrInputDocument;
 import org.jsoup.Jsoup;
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
 /**
@@ -41,9 +43,10 @@ public class Crawler extends WebCrawler {
                                                          + "|rm|smil|wmv|swf|wma|zip|rar|gz))$");
 
     private final static String TARGET_DOMAIN = "https://en.wikipedia.org/wiki/";
+    private final static SolrClient solr = new ConcurrentUpdateSolrClient.Builder(Config.SOLR_URL).build();
 
-    // not working if fields do not already exist in index
-    private final static SolrClient solr = new HttpSolrClient.Builder(Config.SOLR_URL).build();
+    // count the number of solr document added to commit them periodically to solr client
+    private AtomicInteger cnt = new AtomicInteger(0);
 
     /**
      * Configure and start the crawler
@@ -52,24 +55,17 @@ public class Crawler extends WebCrawler {
      * @throws Exception
      */
     public static void main(String[] args) throws Exception {
-        int numberOfCrawlers = 2; // number of concurrent threads that should be initiated for crawling
+        // number of concurrent threads that should be initiated for crawling
+        int numberOfCrawlers = Runtime.getRuntime().availableProcessors();
         CrawlConfig config = new CrawlConfig();
-        String crawlStorageFolder = "data";
 
-        // folder where intermediate crawl data is stored.
-        config.setCrawlStorageFolder(crawlStorageFolder);
-
-        // Be polite: Make sure that we don't send more than 1 request per 0.5 second
-        config.setPolitenessDelay(500);
-
-        // maximum crawl depth
-        config.setMaxDepthOfCrawling(2);
-
-        // maximum number of pages to crawl
-        config.setMaxPagesToFetch(80);
-
-        // crawl also binary data like the contents of pdf, or the metadata of images etc
-        config.setIncludeBinaryContentInCrawling(false);
+        config.setCrawlStorageFolder("data"); // folder where intermediate crawl data is stored.
+        config.setPolitenessDelay(500); // Be polite: Make sure that we don't send more than 1 request per 0.5 second
+        config.setMaxDepthOfCrawling(2); // maximum crawl depth
+        config.setMaxPagesToFetch(80); // maximum number of pages to crawl
+        config.setIncludeBinaryContentInCrawling(false); // crawl also binary data like the contents of pdf
+        config.setIncludeHttpsPages(true);
+        config.setUserAgentString("crawler4j/WEM/2018");
 
         // Instantiate the controller for this crawl.
         PageFetcher pageFetcher = new PageFetcher(config);
@@ -86,6 +82,20 @@ public class Crawler extends WebCrawler {
         // Start the crawl. This is a blocking operation, meaning that the code
         // will reach the line after this only when crawling is finished.
         controller.start(Crawler.class, numberOfCrawlers);
+
+        /*
+        // Add the documents to solr and flush them periodically
+        try {
+            int len = solrInputDocuments.size();
+            for (int i = 0; i < len; i++) {
+                solr.add(solrInputDocuments.get(i));
+                if (i % Config.PERIODICAL_FLUSH == 0)
+                    solr.commit(true, true);
+            }
+        } catch (SolrServerException | IOException e) {
+            e.printStackTrace();
+        }
+        */
     }
 
 
@@ -178,13 +188,15 @@ public class Crawler extends WebCrawler {
             doSolrInputDocument.setField("content", content);
             doSolrInputDocument.setField("categories", categories);
             // doSolrInputDocument.setField("numberOfLinks", links); // TODO necessary ?
-            //SolrClient solr = new HttpSolrClient.Builder(Config.SOLR_URL).build(); // if instantiated as static field of the class, it doesn't create new fields (throw exception "unknown field")
+            // Add the documents to solr and flush them periodically
             try {
                 solr.add(doSolrInputDocument);
-                solr.commit(true, true);
+
+                // commit periodically
+                if (cnt.incrementAndGet() % Config.PERIODICAL_FLUSH == 0)
+                    solr.commit(true, true);
             } catch (SolrServerException | IOException e) {
                 e.printStackTrace();
-                return;
             }
         }
 

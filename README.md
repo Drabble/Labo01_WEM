@@ -46,7 +46,7 @@ Here we perform two queries with Solr tool:
 
 ![alt text](img/default_query.png "Default query")
 
-2. Search for `Isles of Scilly` in title `q(h1 title:Isles of Scilly)` : returns 
+2. Search for `Isles of Scilly` in title `q(title h1:Isles of Scilly)` : returns 
 12 documents
 
 ![alt text](img/specific_query.png "Specific query")
