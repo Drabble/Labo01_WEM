@@ -67,7 +67,7 @@ Voici les 10 premiers documents retournés d'une recherche avec `Isles of Scilly
 
 ![alt text](img/specific_query1_console.png "Specific query console")
 
-Si nous cherchons `smallest inhabited islands` cela retourne 35 documents dont 5 non relevants sur les 10 premiers. Les 3 premiers ont un score beauccoup plus élevlé que le reste et les deux pages relevantes s'y trouvent. Nous ne comprenons par contre pas pourquoi la page wikipedia sur le chiffre 11 vient en premier. Elle ne contient aucun mot ressemblant à inhabited ou à island et ne contient que 2 fois le mot smallest.
+Si nous cherchons `smallest inhabited islands` cela retourne 35 documents dont 5 non relevants sur les 10 premiers. Les 3 premiers ont un score beaucoup plus élevé que le reste et les deux pages relevantes s'y trouvent. Nous ne comprenons par contre pas pourquoi la page wikipedia sur le chiffre 11 vient en premier. Elle ne contient aucun mot ressemblant à inhabited ou à island et ne contient que 2 fois le mot smallest.
 
 ![alt text](img/specific_query2_console.png "Specific query console")
 
@@ -77,36 +77,47 @@ Si nous cherchons `smallest inhabited islands` cela retourne 35 documents dont 5
 
   Pour le crawling, nous voyons 3 possibilités de la plus facile à la plus difficilement réalisable selon nous:
 
-  1. Pour les sites avec des urls séparées pour chaque langue, exécuter deux crawlers différents en restreignant pour chacun le domaine cible à la langue voulue. Par example pour Wikipedia les pages en français commencent par `https://fr.wikipedia.org` (notons le **fr**) alors que les pages en anglais commencent par `https://en.wikipedia.org`.
+  1. Pour les sites avec des urls séparées pour chaque langue, exécuter deux crawlers différents en restreignant pour 
+  chacun le domaine cible à la langue voulue. Par example pour Wikipedia les pages en français commencent par 
+  `https://fr.wikipedia.org` (notons le **fr**) alors que les pages en anglais commencent par `https://en.wikipedia.org`.
+  Par contre, si la page visitée ne prend pas en compte la langue demandée,
+  elle va être retournée dans une autre langue, et dans ce cas il ne faudra pas l'enregistrer sous la mauvaise langue.
+  Pour savoir si la langue retournée est celle qu'on a demandé on peut se baser sur trois choses. Le header `Content-Language`
+  dans la réponse HTTP retournée par le serveur, l'attribut lang dans la balise html `<html lang="en">` ou encore à l'aide
+  d'un outil qui permet de detecter la langue d'un texte.
+  
 
-  2. TODO traduire: For sites that do not seperate url for each language, the crawler should
-  modify its HTTP request with an Accept-Language field set in the HTTP header,
-  accordingly to the language we want to index. Rerun the crawler for each different
-  language. However, if the visited page doesn't take care of the wanted language,
-  then the default one will be displayed. This case should be handled by the crawler to
-  avoid inserting the same page and language multiple times.
+  2. Pour les sites qui ne gère pas la langue dans l'url, le crawler peut modifier ses requêtes HTTP en précisant
+  la langue dans le champ `Accept-Language` des headers HTTP. Il devra ensuite faire une requête pour chaque
+  langue en modifiant à chaque fois les headers.
+  Il faudra denouveau faire attention aux langues non supportées.
 
-  3. TODO traduire : Also for sites that do not seperate url for each language, a crawler could be
-  run from different geographic location. The visited page understand the origin
-  of the ip of the crawler and display its page in the appropriate language. Again,
-  the crawler should take care of default languages.
+  3. Pour les sites qui se basent sur la localisation géographique, il est possible de modifier son IP,
+  par exemple à l'aide d'un VPN. Les requêtes que nous enverrons arriveront donc par le biais d'une autre IP et le site
+  sera affiché dans une autre langue qui correspond à la localisation de l'IP.
+  Il faudra denouveau faire attention aux langues non supportées.
 
-  Ensuite pour l'indexation, en utilisant un seul corpus qui contient plusieurs langues, il faut modifier le schéma Solr et les fichiers solrconfig. Le point 2) du blog de Pavlo Bogomolenko (http://pavelbogomolenko.github.io/multi-language-handling-in-solr.html) nous explique en détail la manipulation mais de manière générale il s'agit de définir les langues puis d'associer à chaque champ sa langue, en gardant un champ pour la langue par défaut.
+  Ensuite pour l'indexation, en utilisant un seul corpus qui contient plusieurs langues, il faut modifier le schéma Solr 
+  et les fichiers solrconfig. Le point 2) du blog de Pavlo Bogomolenko 
+  (http://pavelbogomolenko.github.io/multi-language-handling-in-solr.html) nous explique en détail la manipulation mais 
+  de manière générale il s'agit de définir les langues puis d'associer à chaque champ sa langue, en gardant un champ pour 
+  la langue par défaut.
 
 - **Solr permet par défaut de faire de la recherche floue (fuzzy search). Veuillez expliquer de quoi il s’agit et comment Solr l’a implémenté. Certains prénoms peuvent avoir beaucoup de variation orthographiques (par exemple Caitlin : Caitilin, Caitlen, Caitlinn, Caitlyn, Caitlyne, Caitlynn, Cateline, Catelinn, Catelyn, Catelynn, Catlain, Catlin, Catline, Catlyn, Catlynn, Kaitlin, Kaitlinn, Kaitlyn, Kaitlynn, Katelin, Katelyn, Katelynn, etc). Est-il possible d’utiliser, tout en gardant une bonne performance, la recherche floue mise à disposition par Solr pour faire une recherche prenant en compte de telles variations ? Sinon quelle(s) alternative(s) voyez-vous, veuillez justifier votre réponse.**
 
   TODO traduire
 
-  Fuzzy search discover terms that are similar to a specified term without necessarily being an exact match.
-  You specify an allowed maximum edit distance, and Solr searches any terms within that edit distance from the base term
-  (and, then, the docs containing those terms) are matched. the score corresponds to the similarity of the original word
-  with each generated word. The highest scores represent bigger similarity.
+  La recherche fuzzy search découvre les termes qui sont similaires pour une requête sans forcément avoir un correspondance exacte.
+  On peut spécifier une distance de modification maximum et Solr va rechercher tous les termes qui sont dans cette distance de modification
+  à partir du terme de base de la recherche. Le score des recherches sera relatif à la similarité entre le mot original
+  et le mot modifié. Plus le mot modifié est proche du mot originel, plus le score sera haut.
 
-  Taking care of all the variations of Caitlin is possible. We have to use the `~` opertor and specify and distance
-  of 2 like so : `aitlin~2`. If it does not cover enough variations we can combine fuzzy searches with `OR` operator :
+  Pour prendre en compte toutes les variations de Caitlin, il faut utiliser l'operateur `~` et spécifier une distance de 2
+  commme ça : `aitlin~2`. Si ça ne couvre pas assez de variations, on peut combiner le fuzzy search avec l'opérateur `OR`:
   `Caiteli~2 OR Katelyn~2`.
-
-  However, in many cases, stemming will produce the same results as fuzzy search.
+  
+  Dans beaucoup de cas, le stemming peut donner des résultats similaires au fuzzy search.
+  Il y a aussi la lemmatization.
 
   Sources :
 
