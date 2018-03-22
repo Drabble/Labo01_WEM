@@ -1,15 +1,15 @@
 # WEM - Lab 1 - Crawling, indexing and searching web pages
 
-## 1. Crawler
+## 1. Crawler2
 The crawler starts from a specific wikipedia page and crawls a certain amount 
 of outgoing links (see crawler configs).
 
-In this step we build the Java class "Crawler" which performs the crawling and indexing
+In this step we build the Java class "Crawler2" which performs the crawling and indexing
 of found documents in Solr. To communicate with Solr and the crawler, we use Solrj API
 and to build the crawler we use crawler4j.
 
-In Solr, the core is named "crawler" and the index built contains 80 documents :
-![alt text](img/solr_core_admin.png "Crawler core admin")
+In Solr, the core is named "crawler" and the index built contains 80 documents which is the limit we set with the function `setMaxPagesToFetch()`:
+![alt text](img/solr_core_admin.png "Crawler2 core admin")
 
 ## 2. More precise indexing
 A more precise Solr index was needed in order to return more relevant results during

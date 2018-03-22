@@ -29,7 +29,7 @@ public class Search {
         String query = args.length == 0 ? "*" : String.join(" ", args);
 
         // Solr Client
-        SolrClient solr = new HttpSolrClient.Builder(Config.SOLR_URL).build();
+        SolrClient solr = new HttpSolrClient.Builder(Config.SOLR_URL_2).build();
 
         // Build query
         final Map<String, String> queryParamMap = new HashMap<String, String>();
