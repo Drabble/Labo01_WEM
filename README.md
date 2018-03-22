@@ -1,133 +1,128 @@
-# WEM - Lab 1 - Crawling, indexing and searching web pages
+# WEM - Lab 1 - Crawling, indexation et recherche de pages web
 
-## 1. Crawler2
-The crawler starts from a specific wikipedia page and crawls a certain amount 
-of outgoing links (see crawler configs).
+*Mars 2018 - Antoine Drabble & Sébastien Richoz*
 
-In this step we build the Java class "Crawler2" which performs the crawling and indexing
-of found documents in Solr. To communicate with Solr and the crawler, we use Solrj API
-and to build the crawler we use crawler4j.
+## Introduction
 
-In Solr, the core is named "crawler" and the index built contains 80 documents which is the limit we set with the function `setMaxPagesToFetch()`:
-![alt text](img/solr_core_admin.png "Crawler2 core admin")
+Le but de ce laboratoire est de crawler un site web et d'indexer les pages visitées dans un core Solr, puis d'y effectuer une recherche. Ces tâches se feront en Java avec l'API Solrj ainsi que les librairies crawler4j pour crawler les pages web, et jsoup pour parser leur contenu HTML afin d'en extraire les informations que nous jugeons importantes.
 
-## 2. More precise indexing
-A more precise Solr index was needed in order to return more relevant results during
-searching. 
-We selected the principal components of web pages during the crawling 
-by parsing their html content with [jSoup](https://jsoup.org/). The following elements
-are retrieved :
+Avant de commencer, il faut intaller et démarrer Solr en local.
+
+## 1. Crawler
+
+Pour cette première partie, il s'agit d'abord de créer un core Solr que nous avons nommé **core1** et créé avec la commande `$ bin/solr create -c core1`. Ce core n'a pas de configuration partiuclière, c'est le core par défaut de Solr. Le fichier `Crawler1.java` se charge de crawler et d'indexer le contenu des pages visitées pour ce core.
+
+Le crawler commence depuis une page spécifique Wikipedia `https://en.wikipedia.org/wiki/Bishop_Rock,_Isles_of_Scilly` et visite un nombre de page maximum tout en se limitant à une certaine profondeur et en restant dans le domaine de Wikipedia (voir la configuration dans `Crawler1.java`) étant donné que c'est le site que nous souhaitons indexer.
+
+À chaque page visitée, nous indexons son contenu dans Solr. À la fin des opérations, nous pouvons constater que le core1 a été indexé avec le nombre de documents paramétré.
+
+![alt text](img/crawler1.png "Crawler1")
+
+## 2. Indexation spécialisée
+
+Pour cette seconde partie, un deuxième core **core2** a été créé afin de stocker du contenu plus spécifique aux pages Wikipedia, dans le but d'effectuer des recherches plus efficaces en mettant l'accent sur des termes plus importants.
+
+Nous avons sélectionné les composantes principales des pages web pendant le crawling en parsant leur contenu HTML avec [jSoup](https://jsoup.org/). Voici les éléments retenus :
 
 ![alt text](img/seo.png "SEO")
 
-- `<title>` : The title of the page, strongest element defining in few words the topic
-of the page.
-- `<h1>` : First hierarchical order in html body. Gives also a strong indication of
-its content. Usually similar to the title.
-- First `<p>` : Contains a relevant descriptive summary of the topic.
+- `<title>` : Le titre de la page, élément le plus fort définissant en peu de mots le sujet de la page.
+- `<h1>` : Premier élément hiérarchique du corps de l'HTML. Donne également le sujet de la page. Semblable au titre.
+- Premier paragraphe `<p>` : Contient un résumé descriptif très relevant du sujet.
 
-We also explore the `categories` sections which gives a powerful weight 
-for searching as its content is related to the topic.
+Nous explorons également la section des catégories qui donne un poids important à la recherche étant donné que le contenu est relatif au sujet.
 
 ![alt text](img/categories.png "Categories")
 
-Naturally, the choice of these elements are specific to the domain we target. 
-Here we know we are parsing wikipedia html pages, which all have the same structure
-so with jsoup we use tag names and ids to identify easily the elements.
+Et la class `infobox` qui est un tableau qui contient souvent des informations utiles sur le sujet de la page. Par exemple pour les iles de Scilly il y a la localisation, les coordonnées, la population et sa densité, etc.
 
-Additionally, we store the `url` as we want to be able to visit the page containing the
-information and `content` which is all the text content of the `<body>`.
+![alt text](img/infobox.png "Infobox")
 
-## 3. Searching
-After indexing was successfully built, let's try the searching.
-Here we perform two queries with Solr tool:
+Naturellement, le choix de ces éléments est spécifique au domaine que nous ciblons. Dans ce cas nous savons que nous sommes entrain de parser des pages html Wikipedia, qui ont toutes la même structure. Nous utilisons donc jSoup avec les id et les noms des balises pour identifier facilement les éléments.
 
-1. Default query `q(*:*)` : returns all the 80 documents
+De plus, nous stockons l'url étant donné que nous voulons accéder à la page contenant l'information recherchée, ainsi que le contenu de cette page qui est tout le texte présent dans la balise `<body>`.
+
+Le core2 contient quant à lui plus de documents. Nous avons limité l'index à 1000 documents et supprimé la limitation de la profondeur afin d'être sur de récupérer au moins 1000 documents.
+
+## 3. Recherche
+
+Une fois l'index construit, testons la recherche. Ici nous exécutons deux requêtes dans l'outil Solr :
+
+1. Recherche par défaut `q(*:*)` : retourne les 1000 documents
 
 ![alt text](img/default_query.png "Default query")
 
-2. Search for `Isles of Scilly` in title `q(title h1:Isles of Scilly)` : returns 
-12 documents
+2. Recherche avec un mot présent dans l'index : `Isles of Scilly`. Si nous respectons la logique, nous voyons que cela ne fonctionne pas. Il faut préciser le nom des champs dans lesquels la recherche doit se faire : `title h1:Isles of Scilly`.
 
 ![alt text](img/specific_query.png "Specific query")
 
-Then we build this search functionality in Java class `Search.java` which 
-additionally returns the score for each document. To give more weight to the elements
-we previously extracted, we use specific lucene syntax :
-```
-q:(title:<qry> OR h1:<qry>)^5 (description:<qry>)^3 (categories:<qry>)^2 (content:<qry>)^1
-```
-where `<qry>` is replaced with the query made by the user. 
-More power is given using the exponent. The query is passed as the arguments of the
-executing class.
+Ensuite nous avons implémenté cette fonctionnalité de recherche dans la classe `Search.java` qui retourne en plus le score pour chaque document retourné. Pour donner plus d'importance dans le titre et les champs récupérés au point précédent, nous utilisons la syntaxe spécifique de lucene:
 
-As an example, let's search again for `Isles of Scilly` using our little program.
-It shows the 10 first documents found.
+```
+q:(title:<qry> OR h1:<qry>)^5 (description:<qry>)^3 (infobox:%s)^2 (categories:<qry>)^1.6 (content:<qry>)^1
+```
+où `<qry>` est la requête de l'utilisateur. L'importance est donné par l'exposant. Plus il est grand, plus l'importance l'est aussi. La requête est passé en argument de la classe Search.java.
+
+Voici les 10 premiers documents retournés d'une recherche avec `Isles of Scilly`.
 
 ![alt text](img/specific_query1_console.png "Specific query console")
 
-If we search for `smallest inhabited islands` it returns 5 documents where 2 are not
-relevant. However the score of the first one, which is the wanted document, is much higher
-than the others thanks to the weight given for title, h1 and description.
+Si nous cherchons `smallest inhabited islands` cela retourne 35 documents dont 5 non relevants sur les 10 premiers. Les 3 premiers ont un score beauccoup plus élevlé que le reste et les deux pages relevantes s'y trouvent. Nous ne comprenons par contre pas pourquoi la page wikipedia sur le chiffre 11 vient en premier. Elle ne contient aucun mot ressemblant à inhabited ou à island et ne contient que 2 fois le mot smallest.
 
 ![alt text](img/specific_query2_console.png "Specific query console")
 
-## 4 Theoretical questions
+## 4. Questions théoriques
 
-- **Please explain which strategy to adopt for indexing multilingual pages 
-(each page contains its own language but the corpus contains pages in many 
-different languages). What must be particulary taken care of ?
-Explain how you would do it.**
+- **Veuillez expliquer quelle stratégie il faut adopter pour indexer des pages dans plusieurs langues (chaque page est composée d’une seule langue, mais le corpus comporte des pages dans plusieurs langues). A quoi faut-il faire particulièrement attention ? Veuillez expliquer la démarche que vous proposez.**
 
-  We see 3 possibilities (from the easiest to the most difficult to implement):
-  1. For sites that can have seperate url for each language,
-  execute two different crawlers sequentially by specifying for each the
-  target domain to visit (all urls that start with this target domain should be
-  visited only). For example for Wikipedia all french pages start 
-  with `https://fr.wikipedia.org` (notice the **fr**) while all english pages start
-  with `https://en.wikipedia.org`. All the crawlers connect to the same Solr core
-  to build the index with multilingual pages.
-  2. For sites that do not seperate url for each language, the crawler should
+  Pour le crawling, nous voyons 3 possibilités de la plus facile à la plus difficilement réalisable selon nous:
+
+  1. Pour les sites avec des urls séparées pour chaque langue, exécuter deux crawlers différents en restreignant pour chacun le domaine cible à la langue voulue. Par example pour Wikipedia les pages en français commencent par `https://fr.wikipedia.org` (notons le **fr**) alors que les pages en anglais commencent par `https://en.wikipedia.org`.
+
+  2. TODO traduire: For sites that do not seperate url for each language, the crawler should
   modify its HTTP request with an Accept-Language field set in the HTTP header,
   accordingly to the language we want to index. Rerun the crawler for each different
   language. However, if the visited page doesn't take care of the wanted language,
   then the default one will be displayed. This case should be handled by the crawler to
   avoid inserting the same page and language multiple times.
-  3. Also for sites that do not seperate url for each language, a crawler could be
+
+  3. TODO traduire : Also for sites that do not seperate url for each language, a crawler could be
   run from different geographic location. The visited page understand the origin
   of the ip of the crawler and display its page in the appropriate language. Again,
   the crawler should take care of default languages.
-  
-- **Solr do by default fuzzy search. Explain what it is and how Solr implements it. 
-Some firstnames may have many spelling variations (for example Caitlin : 
-Caitilin, Caitlen, Caitlinn, Caitlyn, Caitlyne, Caitlynn, Cateline, Catelinn, 
-Catelyn, Catelynn, Catlain, Catlin, Catline, Catlyn, Catlynn, Kaitlin, Kaitlinn, 
-Kaitlyn, Kaitlynn, Katelin, Katelyn, Katelynn, etc). 
-Is it possible to use Solr's fuzzy search to make a search taking care of these variations, 
-while keeping still a good performance? If not, which alternative(s) do you see ? Justify your answer.**
+
+  Ensuite pour l'indexation, en utilisant un seul corpus qui contient plusieurs langues, il faut modifier le schéma Solr et les fichiers solrconfig. Le point 2) du blog de Pavlo Bogomolenko (http://pavelbogomolenko.github.io/multi-language-handling-in-solr.html) nous explique en détail la manipulation mais de manière générale il s'agit de définir les langues puis d'associer à chaque champ sa langue, en gardant un champ pour la langue par défaut.
+
+- **Solr permet par défaut de faire de la recherche floue (fuzzy search). Veuillez expliquer de quoi il s’agit et comment Solr l’a implémenté. Certains prénoms peuvent avoir beaucoup de variation orthographiques (par exemple Caitlin : Caitilin, Caitlen, Caitlinn, Caitlyn, Caitlyne, Caitlynn, Cateline, Catelinn, Catelyn, Catelynn, Catlain, Catlin, Catline, Catlyn, Catlynn, Kaitlin, Kaitlinn, Kaitlyn, Kaitlynn, Katelin, Katelyn, Katelynn, etc). Est-il possible d’utiliser, tout en gardant une bonne performance, la recherche floue mise à disposition par Solr pour faire une recherche prenant en compte de telles variations ? Sinon quelle(s) alternative(s) voyez-vous, veuillez justifier votre réponse.**
+
+  TODO traduire
 
   Fuzzy search discover terms that are similar to a specified term without necessarily being an exact match.
-  You specify an allowed maximum edit distance, and Solr searches any terms within that edit distance from the base term 
-  (and, then, the docs containing those terms) are matched. the score corresponds to the similarity of the original word 
+  You specify an allowed maximum edit distance, and Solr searches any terms within that edit distance from the base term
+  (and, then, the docs containing those terms) are matched. the score corresponds to the similarity of the original word
   with each generated word. The highest scores represent bigger similarity.
- 
+
   Taking care of all the variations of Caitlin is possible. We have to use the `~` opertor and specify and distance
   of 2 like so : `aitlin~2`. If it does not cover enough variations we can combine fuzzy searches with `OR` operator :
   `Caiteli~2 OR Katelyn~2`.
-  
+
   However, in many cases, stemming will produce the same results as fuzzy search.
-  
+
   Sources :
-  
+
   - [https://stackoverflow.com/questions/16655933/fuzzy-search-in-solr](https://stackoverflow.com/questions/16655933/fuzzy-search-in-solr)
   - [https://lucene.apache.org/solr/guide/6_6/the-standard-query-parser.html#TheStandardQueryParser-FuzzySearches](https://lucene.apache.org/solr/guide/6_6/the-standard-query-parser.html#TheStandardQueryParser-FuzzySearches)
 
-## Dependencies
+## Conclusion
 
-The following libraries are used in this project :
+Ce labo nous a permis de comprendre comment constuire un index Solr en effectuant un crawling du web et en indexant du contenu spécifique.
+
+## Dépendances
+
+Les librairies suivantes ont été utilisées :
 
 - crawler4j 4.3 [https://github.com/yasserg/crawler4j](https://github.com/yasserg/crawler4j)
 - solrj 7.2.1 [https://lucene.apache.org/solr/guide/7_1/using-solrj.html](https://lucene.apache.org/solr/guide/7_1/using-solrj.html)
 - jsoup 1.11.2 [https://jsoup.org/](https://jsoup.org/)
 
-The libraries are also all listed in the pom.xml.
+Ces librairies sont également listées dans le `pom.xml`.
